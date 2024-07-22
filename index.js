@@ -11,9 +11,13 @@ const Config = {
     jsdelivr: 0
 }
 
-const whiteList = [] // 白名单，路径里面有包含字符的才会通过，e.g. ['/username/']
+// 白名单，路径里面有包含字符的才会通过，e.g. ['/username/']
+const whiteList = [
+    '.googleapis.com',
+    'accounts.google.com',
+]
 
-/** @type {ResponseInit} */
+/** @type {RequestInit} */
 const PREFLIGHT_INIT = {
     status: 204,
     headers: new Headers({
@@ -70,6 +74,20 @@ function checkUrl(u) {
     return false
 }
 
+const customProxyDomainArray=[
+    // 代理所有的http或https开头的东西
+    /^(?:https?:\/\/).*$/i
+]
+
+function checkCustomUrl(u) {
+    for (let i of customProxyDomainArray ) {
+        if (u.search(i) === 0) {
+            return true
+        }
+    }
+    return false
+}
+
 /**
  * @param {FetchEvent} e
  */
@@ -96,6 +114,8 @@ async function fetchHandler(e) {
     } else if (path.search(exp4) === 0) {
         const newUrl = path.replace(/(?<=com\/.+?\/.+?)\/(.+?\/)/, '@$1').replace(/^(?:https?:\/\/)?raw\.(?:githubusercontent|github)\.com/, 'https://cdn.jsdelivr.net/gh')
         return Response.redirect(newUrl, 302)
+    } else if (checkCustomUrl(path)) {
+        return httpHandler(req, path)
     } else {
         return fetch(ASSET_URL + path)
     }
@@ -129,7 +149,7 @@ function httpHandler(req, pathname) {
     if (!flag) {
         return new Response("blocked", {status: 403})
     }
-    if (urlStr.search(/^https?:\/\//) !== 0) {
+    if (urlStr.startsWith('github')) {
         urlStr = 'https://' + urlStr
     }
     const urlObj = newUrl(urlStr)
@@ -178,4 +198,3 @@ async function proxy(urlObj, reqInit) {
         headers: resHdrNew,
     })
 }
-
